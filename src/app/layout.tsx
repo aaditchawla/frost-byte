@@ -1,10 +1,20 @@
-import type { ReactNode } from "react";
 import "./globals.css";
+import { Molle } from "next/font/google";
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+const molle = Molle({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-molle",
+});
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={molle.variable}>{children}</body>
     </html>
   );
 }

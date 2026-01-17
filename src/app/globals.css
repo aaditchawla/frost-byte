@@ -2,12 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Optional: your own global styles */
-html,
-body {
-  height: 100%;
-}
-
 body {
   margin: 0;
   font-family:
@@ -16,5 +10,5 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  background-color: #ffffff;
+  background-color: #202530;
 }
