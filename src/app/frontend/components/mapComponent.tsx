@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
-import DirectionsSteps from "./mapStepsComponent";
+import DirectionsSteps from "./DirectionsStepsComponent";
 
 declare global {
   interface Window {
@@ -149,7 +149,7 @@ export default function MapPage() {
     const request: google.maps.DirectionsRequest = {
       origin: { placeId: originPlace.place_id },
       destination: { placeId: destinationPlace.place_id },
-      travelMode: google.maps.TravelMode.DRIVING,
+      travelMode: google.maps.TravelMode.WALKING,
       optimizeWaypoints: true,
     };
 
@@ -171,10 +171,10 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen ">
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* search inputs panel */}
-          <div className="lg:col-span-1 bg-white/10 backdrop-blur-xl rounded-3xl p-4 mb-0 border border-white/20 shadow-2xl">
+          {/* input + info panel */}
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-xl rounded-3xl p-4 pt-2 mb-0 border border-white/20 shadow-2xl">
             <div className="flex items-center gap-4 mb-6"></div>
 
             <div className="flex flex-col gap-4">
