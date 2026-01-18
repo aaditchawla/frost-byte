@@ -17,8 +17,14 @@ export default function MapPanel() {
   const [isTracking, setIsTracking] = useState(false);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [apiKey, setApiKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/maps-config")
+      .then((res) => res.json())
+      .then((data) => setApiKey(data.apiKey))
+      .catch((error) => console.error("Failed to fetch maps config:", error));
+  }, []);
 
   useEffect(() => {
     if (!apiKey) return;
@@ -90,7 +96,7 @@ export default function MapPanel() {
         userMarkerRef.current.setPosition(userLocation);
       }
     },
-    [map]
+    [map],
   );
 
   // Toggle location tracking on/off
@@ -121,10 +127,12 @@ export default function MapPanel() {
         },
         (error) => {
           console.error("Error getting location:", error);
-          alert("Could not access your location. Please check your browser permissions.");
+          alert(
+            "Could not access your location. Please check your browser permissions.",
+          );
           return;
         },
-        options
+        options,
       );
 
       // Watch position (updates every ~500ms)
@@ -135,7 +143,7 @@ export default function MapPanel() {
         (error) => {
           console.error("Error watching location:", error);
         },
-        options
+        options,
       );
 
       setIsTracking(true);

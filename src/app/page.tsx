@@ -4,6 +4,7 @@ import { RouteProvider } from "./frontend/contexts/routeContext";
 import MapPanel from "./frontend/components/mapPanel";
 import SidePanel from "./frontend/components/sidePanel";
 import logo from "./frontend/images/logo.png";
+import faqIcon from "./frontend/components/faq";
 
 export default function HomePage() {
   return (
