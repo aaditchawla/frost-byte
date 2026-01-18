@@ -20,14 +20,14 @@ export default function HomePage() {
           />
         </header>
 
-        <div className="flex-1 min-h-0 px-6 pb-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="flex-1 min-h-0 px-6 pb-6 flex flex-col lg:grid lg:grid-cols-3 lg:gap-4 gap-4 overflow-y-auto">
           {/* Side Panel */}
-          <div className="lg:col-span-1 min-h-0">
+          <div className="flex-shrink-0 w-full lg:col-span-1 lg:h-full lg:overflow-y-auto">
             <SidePanel />
           </div>
 
           {/* Map Panel */}
-          <div className="lg:col-span-2 min-h-0">
+          <div className="flex-shrink-0 w-full lg:col-span-2 lg:h-full h-[500px]">
             <MapPanel />
           </div>
         </div>

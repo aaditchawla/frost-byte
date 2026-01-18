@@ -65,10 +65,10 @@ export default function MapPanel() {
   }, [map, setDirectionsService, setDirectionsRenderer]);
 
   return (
-    <div className="h-full bg-gray-700 backdrop-blur-xl rounded-3xl p-4 border border-white/20 shadow-2xl">
+    <div className="h-full w-full bg-gray-700 backdrop-blur-xl rounded-3xl p-4 border border-white/20 shadow-2xl flex flex-col">
       <div
         id="map"
-        className="w-full h-full min-h-[500px] rounded-2xl overflow-hidden shadow-2xl"
+        className="flex-1 w-full rounded-2xl overflow-hidden shadow-2xl"
       />
     </div>
   );
