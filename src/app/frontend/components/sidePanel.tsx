@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { useRouteContext } from "../contexts/routeContext";
 import DirectionsSteps from "./DirectionsStepsComponent";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 
 export default function SidePanel() {
   const {
@@ -32,6 +33,7 @@ export default function SidePanel() {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(
     null,
   );
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
 
   // Autocomplete setup
   useEffect(() => {
@@ -123,6 +125,7 @@ export default function SidePanel() {
     ];
 
     try {
+      setIsLoadingRoutes(true);
       routePolylines.forEach((polyline) => polyline.setMap(null));
       setRoutePolylines([]);
       if (directionsRenderer) {
@@ -193,6 +196,8 @@ export default function SidePanel() {
       alert(
         `Could not calculate route: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
+    } finally {
+      setIsLoadingRoutes(false);
     }
   }, [
     originAutocomplete,
@@ -346,9 +351,20 @@ export default function SidePanel() {
         >
           Find Route
         </button>
+        {/* loading animation */}
+        {isLoadingRoutes && (
+          <div className="flex justify-center items-center py-8">
+            <DotLottieReact
+              src="https://lottie.host/1b28c813-14b8-4b04-b076-cb6b60251141/AZVN07wieI.lottie"
+              loop
+              autoplay
+              style={{ width: "220px", height: "220px" }}
+            />
+          </div>
+        )}
 
         {/* route results */}
-        {backendRoutes && (
+        {backendRoutes && !isLoadingRoutes && (
           <div className="mt-4 space-y-2">
             <h3 className="text-white font-semibold">Routes:</h3>
             {backendRoutes.routes.map((route: any) => (
