@@ -45,7 +45,7 @@ def generate_route_explanation(payload):
     env_path = Path(__file__).parent.parent.parent.parent.parent.parent / '.env'
     print(f"DEBUG Gemini: Loading .env from: {env_path}")
     print(f"DEBUG Gemini: .env exists: {env_path.exists()}")
-    load_dotenv(env_path)
+    load_dotenv(env_path, override=True)
     api_key = os.getenv("GEMINI_API_KEY")
     
     print(f"DEBUG Gemini: GEMINI_API_KEY loaded: {'Yes' if api_key else 'No'}")

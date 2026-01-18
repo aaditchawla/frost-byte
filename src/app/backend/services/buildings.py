@@ -188,8 +188,7 @@ async def get_building_features(lat: float, lon: float, radius_m: int = 40):
     return result
 
 class BuildingService(BuildingServiceInterface):
-    """Real building service implementation."""
-    
+        
     async def get_building_density(self, lat: float, lon: float) -> dict:
         """
         Returns building density info matching the interface.
