@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
 declare global {
@@ -17,6 +17,8 @@ export default function MapPage() {
   const mapRef = useRef(null);
   const [originAutocomplete, setOriginAutocomplete] = useState(null);
   const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
+  const [directionsService, setDirectionsService] = useState(null);
+  const [directionsRenderer, setDirectionsRenderer] = useState(null);
 
   // load google maps
   useEffect(() => {
@@ -106,6 +108,62 @@ export default function MapPage() {
       });
   }, [map]);
 
+  // route rendering setup
+  useEffect(() => {
+    if (!map || !window.google?.maps) return;
+
+    const service = new google.maps.DirectionsService();
+    const renderer = new google.maps.DirectionsRenderer({
+      map,
+      suppressMarkers: false,
+      suppressInfoWindows: false,
+    });
+
+    setDirectionsService(service);
+    setDirectionsRenderer(renderer);
+  }, [map]);
+
+  const handleFindRoute = useCallback(async () => {
+    if (
+      !directionsService ||
+      !directionsRenderer ||
+      !originAutocomplete ||
+      !destinationAutocomplete
+    ) {
+      console.log("Missing services");
+      return;
+    }
+
+    const originPlace = originAutocomplete.getPlace();
+    const destinationPlace = destinationAutocomplete.getPlace();
+
+    if (!originPlace?.place_id || !destinationPlace?.place_id) {
+      alert("Please select addresses from the dropdown suggestions");
+      return;
+    }
+
+    const request: google.maps.DirectionsRequest = {
+      origin: { placeId: originPlace.place_id }, // use placeId
+      destination: { placeId: destinationPlace.place_id }, // use placeId
+      travelMode: google.maps.TravelMode.DRIVING,
+      optimizeWaypoints: true,
+    };
+
+    try {
+      const result = await directionsService.route(request);
+      directionsRenderer.setDirections(result);
+      console.log("Route calculated:", result);
+    } catch (error) {
+      console.error("Route error:", error);
+      alert("Could not calculate route. Try different addresses.");
+    }
+  }, [
+    directionsService,
+    directionsRenderer,
+    originAutocomplete,
+    destinationAutocomplete,
+  ]);
+
   return (
     <div className="min-h-screen ">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -166,7 +224,7 @@ export default function MapPage() {
             </div>
 
             <button
-              // onClick={handleFindRoute}
+              onClick={handleFindRoute}
               className="bg-blue-300 hover:bg-blue-400 text-gray-800 font-semibold py-4 px-8 rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
             >
               Find Route
