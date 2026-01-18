@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { useRouteContext } from "../contexts/routeContext";
 
@@ -15,14 +15,12 @@ export default function MapPanel() {
     useRouteContext();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  //get api key
-  useEffect(() => {
-    fetch("/api/maps-config")
-      .then((res) => res.json())
-      .then((data) => setApiKey(data.apiKey))
-      .catch((error) => console.error("Failed to fetch maps config:", error));
-  }, []);
+  // Location tracking state
+  const [isTracking, setIsTracking] = useState(false);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
+  // Load Google Maps
   useEffect(() => {
     if (!apiKey) return;
 
