@@ -16,6 +16,7 @@ from services.scoring.wind_service import get_wind_data
 from services.scoring.wind_calculator import calculate_headwind_factor, calculate_wind_cost
 from services.scoring.route_scorer import RouteScorer, RouteMetrics
 from services.scoring.mock_services import MockBuildingService, MockSnowService
+from services.scoring.gemini import generate_route_explanation
 
 app = FastAPI(title="Frost Byte API", version="1.0.0")
 
@@ -41,6 +42,7 @@ class RouteResponse(BaseModel):
     routes: List[dict]
     chosen_route_id: str
     wind: dict
+    explanation: dict 
 
 @app.post("/route", response_model=RouteResponse)
 async def compute_routes(request: RouteRequest):
@@ -150,10 +152,18 @@ async def compute_routes(request: RouteRequest):
                 "metrics": route["metrics"]
             })
         
+        # Get Gemini explanation
+        gemini_payload = {
+            "chosen_route_id": best_route["id"],
+            "routes": response_routes
+        }
+        explanation = generate_route_explanation(gemini_payload)
+        
         return RouteResponse(
             routes=response_routes,
             chosen_route_id=best_route["id"],
-            wind=wind_data
+            wind=wind_data,
+            explanation=explanation,
         )
     
     except Exception as e:
