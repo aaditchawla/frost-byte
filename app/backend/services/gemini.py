@@ -2,7 +2,7 @@ import os
 import json 
 import time 
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 ####################################
 #10 minute cache for Gemini API call
@@ -53,22 +53,25 @@ def generate_route_explanation(payload):
         return cached
     
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        client = genai.Client(api_key=api_key)
 
         prompt = _build_prompt(payload)
-        response = model.generate_content(prompt)
 
-        text = response.text or ""
+        response = client.models.generate_content(
+        model="gemini-1.5-flash",
+        contents=prompt,
+        )
+
+        text = getattr(response, "text", "") or ""
         parsed = _safe_parse(text)
 
-        if not parsed: 
+        if not parsed:
             parsed = fallback
 
-        _cache_set(cache_key, parsed) #store in cache
+        _cache_set(cache_key, parsed)
         return parsed
-    
-    except Exception:
+
+    except Exception as e:
         return fallback
     
 ##### PROMPT BUILDER #####
@@ -99,29 +102,42 @@ def _fallback(payload):
     routes = payload.get("routes", [])
     chosen_id = payload.get("chosen_route_id")
 
-    chosen = next((r for r in routes if r["id"] == chosen_id), None)
-    other = next((r for r in routes if r["id"] != chosen_id), None) 
+    chosen = next((r for r in routes if r.get("id") == chosen_id), None)
+    other = next((r for r in routes if r.get("id") != chosen_id), None)
 
     if not chosen or not other:
         return {
-    "explanation": "This route is more comfortable due to reduced wind exposure.",
-    "bullets": [
-        "Comfort-based routing",
-        "Lower wind exposure"
-    ],
-    "comfort_score": None
-}
-    c = chosen["metrics"]
-    o = other["metrics"]
+            "explanation": "This route was selected because it appears more comfortable based on weather conditions.",
+            "bullets": ["Comfort-based routing", "Lower wind exposure"],
+            "comfort_score": None,
+        }
+
+    c = chosen.get("metrics", {})
+    o = other.get("metrics", {})
+
+    c_shelter = c.get("shelter_score")
+    o_shelter = o.get("shelter_score")
+
+    #print("DEBUG fallbackk shelter:", c_shelter, o_shelter)
+
+    bullets = [
+        f"Distance: {c.get('distance_m', 'N/A')} m vs {o.get('distance_m', 'N/A')} m",
+        f"Wind cost: {c.get('wind_cost', 'N/A')} vs {o.get('wind_cost', 'N/A')}",
+        f"Snow cost: {c.get('snow_cost', 'N/A')} vs {o.get('snow_cost', 'N/A')}",
+    ]
+
+    if c_shelter is not None and o_shelter is not None:
+        bullets.append(
+            f"Shelter score: {c_shelter:.2f} vs {o_shelter:.2f} (higher = more sheltered)"
+        )
+
+    #print("DEBUG fallback bullets:", bullets)
 
     return {
-        "explanation": ("This route is slightly longer but reduces wind exposure and snow risk, making it more comfortable for winter walking"
+        "explanation": (
+            "This route is slightly longer, but offers better shelter from buildings, reduces wind in your face (and general wind exposure), "
+            "overall improving your walking comfort."
         ),
-
-        "bullets": [
-            f"Distance: {c['distance_m']}m vs {o['distance_m']}m",
-            f"Wind cost: {c['wind_cost']} vs {o['wind_cost']}",
-            f"Snow cost: {c['snow_cost']} vs {o['snow_cost']}",
-        ],
-        "comfort_score": None, 
+        "bullets": bullets,
+        "comfort_score": None,
     }
