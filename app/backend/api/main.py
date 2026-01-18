@@ -15,6 +15,8 @@ from services.routing.route_sampler import sample_route_points, calculate_bearin
 from services.scoring.wind_service import get_wind_data
 from services.scoring.wind_calculator import calculate_headwind_factor, calculate_wind_cost
 from services.scoring.route_scorer import RouteScorer, RouteMetrics
+from services.buildings import BuildingService
+from services.snow import SnowService
 from services.scoring.mock_services import MockBuildingService, MockSnowService
 from services.scoring.gemini import generate_route_explanation
 
@@ -31,8 +33,8 @@ app.add_middleware(
 
 # Initialize services
 scorer = RouteScorer()
-building_service = MockBuildingService()  # Replace with real service later
-snow_service = MockSnowService()  # Replace with real service later
+building_service = BuildingService()  # Real service
+snow_service = SnowService()  # Real service
 
 class RouteRequest(BaseModel):
     start: List[float]  # [lon, lat]
@@ -75,7 +77,7 @@ async def compute_routes(request: RouteRequest):
             sampled_points = sample_route_points(geometry, interval_m=40.0)
             
             # Calculate metrics
-            wind_cost = 0.0
+            '''wind_cost = 0.0
             snow_cost = 0.0
             
             for i in range(len(sampled_points) - 1):
@@ -91,6 +93,51 @@ async def compute_routes(request: RouteRequest):
                 snow = await snow_service.get_snow_status(
                     point[1], point[0]  # lat, lon
                 )
+                
+                # Calculate bearing
+                bearing = calculate_bearing(point, next_point)
+                
+                # Calculate headwind
+                headwind = calculate_headwind_factor(
+                    bearing,
+                    wind_data["direction"],
+                    wind_data["speed"]
+                )
+                
+                # Calculate wind cost
+                segment_wind_cost = calculate_wind_cost(
+                    headwind,
+                    building["shelter_score"]
+                )
+                wind_cost += segment_wind_cost
+                
+                # Add snow cost
+                snow_cost += snow["risk"]'''
+                            # Calculate metrics
+            wind_cost = 0.0
+            snow_cost = 0.0
+            
+            # Track last snow status (update every 20 points)
+            last_snow = None
+            
+            for i in range(len(sampled_points) - 1):
+                point = sampled_points[i]
+                next_point = sampled_points[i + 1]
+                
+                # Get building density (Person 3)
+                building = await building_service.get_building_density(
+                    point[1], point[0]  # lat, lon
+                )
+                
+                # Get snow status (Person 3) - only every 20 points
+                if i % 20 == 0 or last_snow is None:
+                    # Update snow status every 20 points
+                    last_snow = await snow_service.get_snow_status(
+                        point[1], point[0]  # lat, lon
+                    )
+                
+                # Use the last known snow status
+                snow = last_snow
                 
                 # Calculate bearing
                 bearing = calculate_bearing(point, next_point)
