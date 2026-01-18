@@ -20,9 +20,11 @@ export default function MapPage() {
   const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
   const [directionsService, setDirectionsService] = useState(null);
   const [directionsRenderer, setDirectionsRenderer] = useState(null);
-  const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
-  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
-
+  const [directionsResult, setDirectionsResult] =
+    useState<google.maps.DirectionsResult | null>(null);
+  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(
+    null,
+  );
 
   // load google maps
   useEffect(() => {
@@ -156,7 +158,7 @@ export default function MapPage() {
     try {
       const result = await directionsService.route(request);
       directionsRenderer.setDirections(result);
-      setDirectionsResult(result);  // ← ADD THIS LINE (1)
+      setDirectionsResult(result); // ← ADD THIS LINE (1)
       console.log("Route calculated:", result);
     } catch (error) {
       console.error("Route error:", error);
@@ -234,7 +236,41 @@ export default function MapPage() {
               >
                 Find Route
               </button>
-
+              {directionsResult && directionsResult.routes.length > 0 && (
+                <div className="">
+                  <div className="flex justify-between items-center">
+                    <div className="text-center flex-1">
+                      <p className="text-white text-l font-semibold">
+                        {(
+                          directionsResult.routes[0].legs.reduce(
+                            (sum, leg) => sum + leg.distance.value,
+                            0,
+                          ) / 1000
+                        ).toFixed(2)}{" "}
+                        km
+                      </p>
+                    </div>
+                    <div className="text-center flex-1">
+                      <p className="text-white text-l font-semibold">
+                        {(() => {
+                          const totalSeconds =
+                            directionsResult.routes[0].legs.reduce(
+                              (sum, leg) => sum + leg.duration.value,
+                              0,
+                            );
+                          const hours = Math.floor(totalSeconds / 3600);
+                          const minutes = Math.round(
+                            (totalSeconds % 3600) / 60,
+                          );
+                          return hours > 0
+                            ? `${hours}h ${minutes}m`
+                            : `${minutes}m`;
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <DirectionsSteps
                 directionsResult={directionsResult}
                 onStepSelect={setSelectedStepIndex}
