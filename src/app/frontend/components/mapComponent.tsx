@@ -69,7 +69,7 @@ export default function MapPage() {
             {
               // allow addresses and place names
               types: ["geocode", "establishment"],
-              // keep suggestions within Montreal
+              // bounds are mtl
               bounds: {
                 south: 45.39,
                 west: -73.94,
@@ -143,8 +143,8 @@ export default function MapPage() {
     }
 
     const request: google.maps.DirectionsRequest = {
-      origin: { placeId: originPlace.place_id }, // use placeId
-      destination: { placeId: destinationPlace.place_id }, // use placeId
+      origin: { placeId: originPlace.place_id },
+      destination: { placeId: destinationPlace.place_id },
       travelMode: google.maps.TravelMode.DRIVING,
       optimizeWaypoints: true,
     };
@@ -167,11 +167,11 @@ export default function MapPage() {
   return (
     <div className="min-h-screen ">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header/Search Bar */}
+        {/* search inputs */}
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-4 mb-8 border border-white/20 shadow-2xl">
           <div className="flex items-center gap-4 mb-6"></div>
 
-          {/* Search Inputs */}
+          {/* origin input */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="relative">
               <svg
@@ -201,6 +201,7 @@ export default function MapPage() {
               />
             </div>
 
+            {/* Destination input  */}
             <div className="relative lg:col-span-1">
               <svg
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"
@@ -223,6 +224,7 @@ export default function MapPage() {
               />
             </div>
 
+            {/* Find Route button */}
             <button
               onClick={handleFindRoute}
               className="bg-blue-300 hover:bg-blue-400 text-gray-800 font-semibold py-4 px-8 rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
