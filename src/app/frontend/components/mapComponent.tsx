@@ -20,13 +20,20 @@ export default function MapPage() {
   const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
   const [directionsService, setDirectionsService] = useState(null);
   const [directionsRenderer, setDirectionsRenderer] = useState(null);
-  const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
-  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
-  const [routePolylines, setRoutePolylines] = useState<google.maps.Polyline[]>([]);
+  const [directionsResult, setDirectionsResult] =
+    useState<google.maps.DirectionsResult | null>(null);
+  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(
+    null,
+  );
+  const [routePolylines, setRoutePolylines] = useState<google.maps.Polyline[]>(
+    [],
+  );
   const [backendRoutes, setBackendRoutes] = useState<any>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [originPlace, setOriginPlace] = useState<google.maps.places.PlaceResult | null>(null);
-  const [destinationPlace, setDestinationPlace] = useState<google.maps.places.PlaceResult | null>(null);
+  const [originPlace, setOriginPlace] =
+    useState<google.maps.places.PlaceResult | null>(null);
+  const [destinationPlace, setDestinationPlace] =
+    useState<google.maps.places.PlaceResult | null>(null);
 
   // load google maps
   useEffect(() => {
@@ -89,7 +96,7 @@ export default function MapPage() {
               fields: ["place_id", "name", "formatted_address", "geometry"],
             },
           );
-          
+
           // Store place when selected
           autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
@@ -97,7 +104,7 @@ export default function MapPage() {
               setOriginPlace(place);
             }
           });
-          
+
           setOriginAutocomplete(autocomplete);
         }
 
@@ -117,7 +124,7 @@ export default function MapPage() {
               fields: ["place_id", "name", "formatted_address", "geometry"],
             },
           );
-          
+
           // Store place when selected
           autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
@@ -125,7 +132,7 @@ export default function MapPage() {
               setDestinationPlace(place);
             }
           });
-          
+
           setDestinationAutocomplete(autocomplete);
         }
       })
@@ -168,12 +175,18 @@ export default function MapPage() {
     setDestinationPlace(destination);
 
     // Get coordinates from Google Places
-    const start = [origin.geometry.location.lng(), origin.geometry.location.lat()]; // [lon, lat]
-    const end = [destination.geometry.location.lng(), destination.geometry.location.lat()]; // [lon, lat]
+    const start = [
+      origin.geometry.location.lng(),
+      origin.geometry.location.lat(),
+    ]; // [lon, lat]
+    const end = [
+      destination.geometry.location.lng(),
+      destination.geometry.location.lat(),
+    ]; // [lon, lat]
 
     try {
       // Clear existing polylines and directions
-      routePolylines.forEach(polyline => polyline.setMap(null));
+      routePolylines.forEach((polyline) => polyline.setMap(null));
       setRoutePolylines([]);
       if (directionsRenderer) {
         directionsRenderer.setDirections({ routes: [] });
@@ -182,7 +195,8 @@ export default function MapPage() {
       setSelectedRouteId(null);
 
       // Call your backend API
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const response = await fetch(`${backendUrl}/route`, {
         method: "POST",
         headers: {
@@ -215,7 +229,8 @@ export default function MapPage() {
 
           // Color: green for recommended route, blue for alternative, thicker for chosen route
           const isChosen = route.id === data.chosen_route_id;
-          const strokeColor = route.type === "recommended" ? "#00FF00" : "#0066FF"; // Green for recommended, blue for alternative
+          const strokeColor =
+            route.type === "recommended" ? "#00FF00" : "#0066FF"; // Green for recommended, blue for alternative
           const strokeWeight = isChosen ? 5 : 3;
 
           const polyline = new google.maps.Polyline({
@@ -245,103 +260,134 @@ export default function MapPage() {
       }
     } catch (error) {
       console.error("Route error:", error);
-      alert(`Could not calculate route: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(
+        `Could not calculate route: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
-  }, [originAutocomplete, destinationAutocomplete, map, routePolylines, directionsRenderer]);
+  }, [
+    originAutocomplete,
+    destinationAutocomplete,
+    map,
+    routePolylines,
+    directionsRenderer,
+  ]);
 
   // Handle route selection - get Google Maps directions for selected route
-  const handleRouteSelect = useCallback(async (route: any) => {
-    if (!directionsService || !directionsRenderer || !originPlace || !destinationPlace) {
-      console.log("Missing services or places");
-      return;
-    }
+  const handleRouteSelect = useCallback(
+    async (route: any) => {
+      if (
+        !directionsService ||
+        !directionsRenderer ||
+        !originPlace ||
+        !destinationPlace
+      ) {
+        console.log("Missing services or places");
+        return;
+      }
 
-    if (!originPlace.geometry?.location || !destinationPlace.geometry?.location) {
-      alert("Please select addresses first");
-      return;
-    }
+      if (
+        !originPlace.geometry?.location ||
+        !destinationPlace.geometry?.location
+      ) {
+        alert("Please select addresses first");
+        return;
+      }
 
-    try {
-      // Use waypoints from backend route to get detailed directions
-      // Google Maps allows max 23 waypoints, so we sample intelligently
-      const pathPoints = route.overview_path;
-      const totalPoints = pathPoints.length;
-      
-      // Calculate how many waypoints we can use (max 23, but leave room for start/end)
-      const maxWaypoints = 21; // Leave 2 slots for origin/destination if needed
-      
-      // More aggressive sampling for shorter routes, adaptive for longer routes
-      const sampleInterval = totalPoints < 50 
-        ? 2  // Sample every 2nd point for short routes
-        : Math.max(2, Math.floor(totalPoints / maxWaypoints)); // Adaptive for longer routes
-      
-      // Sample waypoints from the route path (skip first and last as they're origin/destination)
-      const waypoints = pathPoints
-        .filter((_: any, index: number) => 
-          index > 0 && 
-          index < totalPoints - 1 && 
-          index % sampleInterval === 0
-        )
-        .slice(0, maxWaypoints) // Ensure we don't exceed limit
-        .map((point: any) => ({
-          location: new google.maps.LatLng(point.lat, point.lng),
-          stopover: false, // Don't require stopping at waypoints
-        }));
+      try {
+        // Use waypoints from backend route to get detailed directions
+        // Google Maps allows max 23 waypoints, so we sample intelligently
+        const pathPoints = route.overview_path;
+        const totalPoints = pathPoints.length;
 
-      const request: google.maps.DirectionsRequest = {
-        origin: originPlace.geometry.location,
-        destination: destinationPlace.geometry.location,
-        waypoints: waypoints.length > 0 ? waypoints : undefined, // Only add if we have waypoints
-        travelMode: google.maps.TravelMode.WALKING,
-        optimizeWaypoints: false, // Keep waypoint order to match backend route
-      };
+        // Calculate how many waypoints we can use (max 23, but leave room for start/end)
+        const maxWaypoints = 21; // Leave 2 slots for origin/destination if needed
 
-      const result = await directionsService.route(request);
-      
-      // Display on map with directions renderer (this will show Google Maps style route)
-      directionsRenderer.setDirections(result);
-      
-      // Store for DirectionsStepsComponent
-      setDirectionsResult(result);
-      
-      // Update selected route
-      setSelectedRouteId(route.id);
-      
-      // Highlight the selected route polyline
-      routePolylines.forEach((polyline, index) => {
-        const routeId = backendRoutes?.routes[index]?.id;
-        if (routeId === route.id) {
-          polyline.setOptions({
-            strokeWeight: 6,
-            strokeOpacity: 1.0,
-            zIndex: 1000,
-          });
-        } else {
-          polyline.setOptions({
-            strokeWeight: 3,
-            strokeOpacity: 0.5,
-            zIndex: 1,
+        // More aggressive sampling for shorter routes, adaptive for longer routes
+        const sampleInterval =
+          totalPoints < 50
+            ? 2 // Sample every 2nd point for short routes
+            : Math.max(2, Math.floor(totalPoints / maxWaypoints)); // Adaptive for longer routes
+
+        // Sample waypoints from the route path (skip first and last as they're origin/destination)
+        const waypoints = pathPoints
+          .filter(
+            (_: any, index: number) =>
+              index > 0 &&
+              index < totalPoints - 1 &&
+              index % sampleInterval === 0,
+          )
+          .slice(0, maxWaypoints) // Ensure we don't exceed limit
+          .map((point: any) => ({
+            location: new google.maps.LatLng(point.lat, point.lng),
+            stopover: false, // Don't require stopping at waypoints
+          }));
+
+        const request: google.maps.DirectionsRequest = {
+          origin: originPlace.geometry.location,
+          destination: destinationPlace.geometry.location,
+          waypoints: waypoints.length > 0 ? waypoints : undefined, // Only add if we have waypoints
+          travelMode: google.maps.TravelMode.WALKING,
+          optimizeWaypoints: false, // Keep waypoint order to match backend route
+        };
+
+        const result = await directionsService.route(request);
+
+        // Display on map with directions renderer (this will show Google Maps style route)
+        directionsRenderer.setDirections(result);
+
+        // Store for DirectionsStepsComponent
+        setDirectionsResult(result);
+
+        // Update selected route
+        setSelectedRouteId(route.id);
+
+        // Highlight the selected route polyline
+        routePolylines.forEach((polyline, index) => {
+          const routeId = backendRoutes?.routes[index]?.id;
+          if (routeId === route.id) {
+            polyline.setOptions({
+              strokeWeight: 6,
+              strokeOpacity: 1.0,
+              zIndex: 1000,
+            });
+          } else {
+            polyline.setOptions({
+              strokeWeight: 3,
+              strokeOpacity: 0.5,
+              zIndex: 1,
+            });
+          }
+        });
+
+        // Scroll to directions
+        const directionsElement = document.querySelector("[data-directions]");
+        if (directionsElement) {
+          directionsElement.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
           });
         }
-      });
-
-      // Scroll to directions
-      const directionsElement = document.querySelector('[data-directions]');
-      if (directionsElement) {
-        directionsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (error) {
+        console.error("Directions error:", error);
+        alert("Could not get directions for this route.");
       }
-    } catch (error) {
-      console.error("Directions error:", error);
-      alert("Could not get directions for this route.");
-    }
-  }, [directionsService, directionsRenderer, originPlace, destinationPlace, routePolylines, backendRoutes]);
+    },
+    [
+      directionsService,
+      directionsRenderer,
+      originPlace,
+      destinationPlace,
+      routePolylines,
+      backendRoutes,
+    ],
+  );
 
   return (
     <div className="min-h-screen ">
       <div className="container mx-auto py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           {/* input + info panel */}
-          <div className="lg:col-span-1 bg-white/10 backdrop-blur-xl rounded-3xl p-4 pt-2 mb-0 border border-white/20 shadow-2xl">
+          <div className="lg:col-span-1 bg-gray-700 backdrop-blur-xl rounded-3xl p-4 pt-2 mb-0 border border-white/20 shadow-2xl">
             <div className="flex items-center gap-4 mb-6"></div>
 
             <div className="flex flex-col gap-4">
@@ -369,7 +415,7 @@ export default function MapPage() {
                   id="origin"
                   type="text"
                   placeholder="Where are you?"
-                  className="w-full pl-12 pr-4 py-4 bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-500 border border-gray-700 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-300"
                 />
               </div>
 
@@ -391,7 +437,7 @@ export default function MapPage() {
                   id="destination"
                   type="text"
                   placeholder="Where to?"
-                  className="w-full pl-12 pr-4 py-4 bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-500 border border-gray-700 rounded-2xl text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300/50 transition-all duration-300"
                 />
               </div>
 
@@ -413,7 +459,7 @@ export default function MapPage() {
                       className={`p-3 rounded-lg cursor-pointer transition-all hover:scale-105 ${
                         route.id === backendRoutes.chosen_route_id
                           ? "bg-green-500/30 border-2 border-green-400"
-                          : "bg-white/10 border border-white/20 hover:bg-white/20"
+                          : "bg-gray-700 border border-white/20 hover:bg-gray-600"
                       } ${
                         selectedRouteId === route.id
                           ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-transparent"
@@ -424,15 +470,27 @@ export default function MapPage() {
                         <div className="font-bold flex items-center justify-between">
                           <span>{route.type.toUpperCase()}</span>
                           {selectedRouteId === route.id && (
-                            <span className="text-xs bg-blue-500 px-2 py-1 rounded">Selected</span>
+                            <span className="text-xs bg-blue-500 px-2 py-1 rounded">
+                              Selected
+                            </span>
                           )}
                         </div>
                         <div>Distance: {route.legs[0]?.distance?.text}</div>
                         <div>Duration: {route.legs[0]?.duration?.text}</div>
                         <div>Score: {route.score.toFixed(2)}</div>
                         <div className="text-xs text-blue-300 mt-2 flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
                           </svg>
                           Click for directions
                         </div>
@@ -442,9 +500,10 @@ export default function MapPage() {
                   {backendRoutes.explanation && (
                     <div className="mt-2 p-3 bg-blue-500/20 rounded-lg border border-blue-400/30">
                       <p className="text-white text-xs">
-                        {typeof backendRoutes.explanation === 'string' 
-                          ? backendRoutes.explanation 
-                          : backendRoutes.explanation.explanation || 'Route explanation'}
+                        {typeof backendRoutes.explanation === "string"
+                          ? backendRoutes.explanation
+                          : backendRoutes.explanation.explanation ||
+                            "Route explanation"}
                       </p>
                     </div>
                   )}
@@ -461,7 +520,7 @@ export default function MapPage() {
           </div>
 
           {/* map panel */}
-          <div className="lg:col-span-2 bg-white/10 backdrop-blur-xl rounded-3xl p-6 border border-white/20 shadow-2xl">
+          <div className="lg:col-span-2 bg-gray-700 backdrop-blur-xl rounded-3xl p-6 border border-white/20 shadow-2xl">
             <div
               id="map"
               className="w-full h-[600px] rounded-2xl overflow-hidden shadow-2xl"
