@@ -1,15 +1,19 @@
 import React from "react";
+import Image from "next/image";
 import MapComponent from "./components/mapComponent";
-import SnowflakeMapsLogo from "./components/logo";
+import logo from "./images/logo2.png";
 
 export default function HomePage() {
   return (
     <main className="min-h-screen">
       <div className="flex flex-col">
-        <h1 className="font-molle text-5xl font-bold text-blue-300 pt-4 px-12">
-          Frostbyte
-        </h1>
-        {/* <SnowflakeMapsLogo /> */}
+        <Image
+          src={logo}
+          alt="Frostbyte Logo"
+          className="pt-4 px-12"
+          width={350}
+          height={200}
+        />
       </div>
       <div>
         <MapComponent />
