@@ -22,6 +22,8 @@ export default function MapPage() {
   const [directionsRenderer, setDirectionsRenderer] = useState(null);
   const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null);
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
+  const [routePolylines, setRoutePolylines] = useState<google.maps.Polyline[]>([]);
+  const [backendRoutes, setBackendRoutes] = useState<any>(null);
 
 
   // load google maps
@@ -128,46 +130,95 @@ export default function MapPage() {
   }, [map]);
 
   const handleFindRoute = useCallback(async () => {
-    if (
-      !directionsService ||
-      !directionsRenderer ||
-      !originAutocomplete ||
-      !destinationAutocomplete
-    ) {
-      console.log("Missing services");
+    if (!originAutocomplete || !destinationAutocomplete) {
+      console.log("Missing autocomplete services");
       return;
     }
 
     const originPlace = originAutocomplete.getPlace();
     const destinationPlace = destinationAutocomplete.getPlace();
 
-    if (!originPlace?.place_id || !destinationPlace?.place_id) {
+    if (!originPlace?.geometry?.location || !destinationPlace?.geometry?.location) {
       alert("Please select addresses from the dropdown suggestions");
       return;
     }
 
-    const request: google.maps.DirectionsRequest = {
-      origin: { placeId: originPlace.place_id },
-      destination: { placeId: destinationPlace.place_id },
-      travelMode: google.maps.TravelMode.WALKING,
-      optimizeWaypoints: true,
-    };
+    // Get coordinates from Google Places
+    const start = [originPlace.geometry.location.lng(), originPlace.geometry.location.lat()]; // [lon, lat]
+    const end = [destinationPlace.geometry.location.lng(), destinationPlace.geometry.location.lat()]; // [lon, lat]
 
     try {
-      const result = await directionsService.route(request);
-      directionsRenderer.setDirections(result);
-      setDirectionsResult(result);  // ← ADD THIS LINE (1)
-      console.log("Route calculated:", result);
+      // Clear existing polylines
+      routePolylines.forEach(polyline => polyline.setMap(null));
+      setRoutePolylines([]);
+
+      // Call your backend API
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const response = await fetch(`${backendUrl}/route`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          start: start,
+          end: end,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Backend error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log("Backend response:", data);
+      setBackendRoutes(data);
+
+      // Display routes on map
+      if (data.routes && data.routes.length > 0 && map) {
+        const newPolylines: google.maps.Polyline[] = [];
+
+        data.routes.forEach((route: any, index: number) => {
+          const path = route.overview_path.map((point: any) => ({
+            lat: point.lat,
+            lng: point.lng,
+          }));
+
+          // Color: green for recommended route, blue for alternative, thicker for chosen route
+          const isChosen = route.id === data.chosen_route_id;
+          const strokeColor = route.type === "recommended" ? "#00FF00" : "#0066FF"; // Green for recommended, blue for alternative
+          const strokeWeight = isChosen ? 5 : 3;
+
+          const polyline = new google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: strokeColor,
+            strokeOpacity: 0.8,
+            strokeWeight: strokeWeight,
+          });
+
+          polyline.setMap(map);
+          newPolylines.push(polyline);
+        });
+
+        setRoutePolylines(newPolylines);
+
+        // Fit map to show all routes
+        if (newPolylines.length > 0) {
+          const bounds = new google.maps.LatLngBounds();
+          data.routes.forEach((route: any) => {
+            route.overview_path.forEach((point: any) => {
+              bounds.extend(new google.maps.LatLng(point.lat, point.lng));
+            });
+          });
+          map.fitBounds(bounds);
+        }
+      }
     } catch (error) {
       console.error("Route error:", error);
-      alert("Could not calculate route. Try different addresses.");
+      alert(`Could not calculate route: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [
-    directionsService,
-    directionsRenderer,
-    originAutocomplete,
-    destinationAutocomplete,
-  ]);
+  }, [originAutocomplete, destinationAutocomplete, map, routePolylines]);
 
   return (
     <div className="min-h-screen ">
@@ -234,6 +285,39 @@ export default function MapPage() {
               >
                 Find Route
               </button>
+
+              {/* Display route info if available */}
+              {backendRoutes && (
+                <div className="mt-4 space-y-2">
+                  <h3 className="text-white font-semibold">Routes:</h3>
+                  {backendRoutes.routes.map((route: any) => (
+                    <div
+                      key={route.id}
+                      className={`p-3 rounded-lg ${
+                        route.id === backendRoutes.chosen_route_id
+                          ? "bg-green-500/30 border-2 border-green-400"
+                          : "bg-white/10 border border-white/20"
+                      }`}
+                    >
+                      <div className="text-white text-sm">
+                        <div className="font-bold">{route.type.toUpperCase()}</div>
+                        <div>Distance: {route.legs[0]?.distance?.text}</div>
+                        <div>Duration: {route.legs[0]?.duration?.text}</div>
+                        <div>Score: {route.score.toFixed(2)}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {backendRoutes.explanation && (
+                    <div className="mt-2 p-3 bg-blue-500/20 rounded-lg border border-blue-400/30">
+                      <p className="text-white text-xs">
+                        {typeof backendRoutes.explanation === 'string' 
+                          ? backendRoutes.explanation 
+                          : backendRoutes.explanation.explanation || 'Route explanation'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <DirectionsSteps
                 directionsResult={directionsResult}

@@ -72,6 +72,7 @@ async def compute_routes(request: RouteRequest):
         for idx, route in enumerate(alternatives):
             geometry = route["geometry"]
             distance_m = route["distance_m"]
+            duration_s = route.get("duration_s", int(distance_m / 1.4))  # Get from ORS or estimate
             
             # Sample points
             sampled_points = sample_route_points(geometry, interval_m=40.0)
@@ -167,15 +168,13 @@ async def compute_routes(request: RouteRequest):
             )
             score = scorer.score_route(metrics)
             
-            # Determine route type
-            route_type = "fastest" if idx == 0 else "comfort"
             route_id = f"route_{idx}"
             
             routes_with_scores.append({
                 "id": route_id,
-                "type": route_type,
                 "geojson": geometry,
                 "distance_m": distance_m,
+                "duration_s": duration_s,  # Preserve duration from ORS
                 "score": score,
                 "metrics": {
                     "distance_m": metrics.distance_m,
@@ -184,19 +183,64 @@ async def compute_routes(request: RouteRequest):
                 }
             })
         
-        # 4. Choose best route
+        # 4. Choose best route (lowest score = best route)
         best_route = scorer.choose_best_route(routes_with_scores)
         
-        # 5. Format response
+        # 5. Format response for frontend
         response_routes = []
         for route in routes_with_scores:
+            # Label route based on whether it's the chosen best route
+            if route["id"] == best_route["id"]:
+                route_type = "recommended"
+            else:
+                route_type = "alternative"
+            geometry = route["geojson"]
+            coordinates = geometry.get("coordinates", [])
+            
+            # Convert GeoJSON coordinates [lon, lat] to overview_path [{lat, lng}]
+            overview_path = [
+                {"lat": coord[1], "lng": coord[0]}  # GeoJSON is [lon, lat], we need {lat, lng}
+                for coord in coordinates
+            ]
+            
+            # Create legs structure (one leg for the entire route)
+            distance_m = route["distance_m"]
+            duration_s = route.get("duration_s", int(distance_m / 1.4))  # Estimate: ~1.4 m/s walking speed
+            
+            # Format distance and duration like Google Maps
+            if distance_m >= 1000:
+                distance_text = f"{distance_m/1000:.1f} km"
+            else:
+                distance_text = f"{int(distance_m)} m"
+            
+            duration_mins = duration_s // 60
+            if duration_mins > 0:
+                duration_text = f"{duration_mins} mins"
+            else:
+                duration_text = f"{duration_s} secs"
+            
+            # Get start and end locations
+            start_coord = coordinates[0] if coordinates else [0, 0]
+            end_coord = coordinates[-1] if coordinates else [0, 0]
+            
+            # Create legs array (one leg for entire route)
+            legs = [{
+                "start_location": {"lat": start_coord[1], "lng": start_coord[0]},
+                "end_location": {"lat": end_coord[1], "lng": end_coord[0]},
+                "distance": {"text": distance_text, "value": int(distance_m)},
+                "duration": {"text": duration_text, "value": int(duration_s)},
+                "steps": []  # We don't have turn-by-turn from ORS
+            }]
+            
             response_routes.append({
                 "id": route["id"],
-                "type": route["type"],
-                "geojson": route["geojson"],
-                "distance_m": route["distance_m"],
+                "type": route_type,  # "recommended" or "alternative" based on scoring
+                "overview_path": overview_path,  # Frontend format
+                "legs": legs,  # Frontend format
+                "distance_m": distance_m,
                 "score": route["score"].total_score,
-                "metrics": route["metrics"]
+                "metrics": route["metrics"],
+                "geojson": geometry  # Keep original for reference
             })
         
         # Get Gemini explanation
