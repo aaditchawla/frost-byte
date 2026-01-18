@@ -4,11 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import DirectionsSteps from "./DirectionsStepsComponent";
 
-declare global {
-  interface Window {
-    mapInstance: any;
-  }
-}
+// declare global {
+//   interface Window {
+//     mapInstance: any;
+//   }
+// }
 
 export default function MapPage() {
   const [apiKey, setApiKey] = useState(
