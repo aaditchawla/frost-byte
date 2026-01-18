@@ -15,7 +15,10 @@ export default function MapPage() {
   );
   const [map, setMap] = useState(null);
   const mapRef = useRef(null);
+  const [originAutocomplete, setOriginAutocomplete] = useState(null);
+  const [destinationAutocomplete, setDestinationAutocomplete] = useState(null);
 
+  // load google maps
   useEffect(() => {
     if (!apiKey) return;
 
@@ -31,13 +34,12 @@ export default function MapPage() {
 
         const mapElement = document.getElementById("map");
         if (mapElement && !window.mapInstance) {
-          // Prevent duplicates
           const newMap = new maps.Map(mapElement, {
-            center: { lat: 45.506, lng: -73.5783 }, // Montreal
+            center: { lat: 45.506, lng: -73.5783 },
             zoom: 11,
           });
           setMap(newMap);
-          window.mapInstance = newMap; // Global access for DirectionsService
+          window.mapInstance = newMap;
           console.log("mapInstance created:", window.mapInstance);
         }
       })
@@ -45,6 +47,64 @@ export default function MapPage() {
         console.error("Google Maps failed to load:", error);
       });
   }, [apiKey]);
+
+  // Autocomplete setup
+  useEffect(() => {
+    if (!map) return;
+
+    importLibrary("places")
+      .then(() => {
+        const originInput = document.getElementById(
+          "origin",
+        ) as HTMLInputElement;
+        const destinationInput = document.getElementById(
+          "destination",
+        ) as HTMLInputElement;
+
+        if (originInput) {
+          const autocomplete = new google.maps.places.Autocomplete(
+            originInput,
+            {
+              // allow addresses and place names
+              types: ["geocode", "establishment"],
+              // keep suggestions within Montreal
+              bounds: {
+                south: 45.39,
+                west: -73.94,
+                north: 45.75,
+                east: -73.36,
+              },
+              strictBounds: true,
+              componentRestrictions: { country: "ca" },
+              fields: ["place_id", "name", "formatted_address", "geometry"],
+            },
+          );
+          setOriginAutocomplete(autocomplete);
+        }
+
+        if (destinationInput) {
+          const autocomplete = new google.maps.places.Autocomplete(
+            destinationInput,
+            {
+              types: ["geocode", "establishment"],
+              bounds: {
+                south: 45.39,
+                west: -73.94,
+                north: 45.75,
+                east: -73.36,
+              },
+              strictBounds: true,
+              componentRestrictions: { country: "ca" },
+              fields: ["place_id", "name", "formatted_address", "geometry"],
+            },
+          );
+          setDestinationAutocomplete(autocomplete);
+        }
+      })
+      .catch((error) => {
+        console.error("Places library failed to load:", error);
+      });
+  }, [map]);
 
   return (
     <div className="min-h-screen ">
