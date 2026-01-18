@@ -107,6 +107,18 @@ def _build_prompt(payload):
     - Use only the data provided
     - Mention tradeoffs (distance vs. wind/snow)
     - Output JSON ONLY with keys: explanation, bullets, comfort_score
+    - If the two routes are the same, make sure to note that they are actually the same
+    - Discuss the difference in average walk time for each route based on distance. If one has a significantly higher snow cost, consider this in the walking time
+    - Discuss what the most significant difference in metrics was (wind cost, snow cost, shelter score, distance)
+    - Discuss whether, in your opinion, the difference in time walking is significant enough to justify the tradeoff
+    - And do not call the routes 'route 0 or route 1', the better route is your "suggested route" and the other is the "alternative route"
+    - Explain what snow cost, wind cost, and shelter score mean for walking comfort (where snow cost is how much of the streets are plowed, wind cost is the wind exposure to your face, and shelter score is how much protection the buildings provide from wind and snow)
+    - Make sure that if theres only a significant difference in one metric, that you also discuss the lack of difference in the others
+    - Assume the user is somewhat interested in the meaning of the metrics and the tradeoffs calculated, but stay roughly under 175 words
+    - Say Hello before you start your explanation
+    - If streets are mentioned, discuss how those streets in particular had their snow removal status taken the most into account
+    - You don't need to specifically say what the scores are themselves, don't need to give numbers unless it's for walking time
+    - You also don't need to be so specific with your numbers, it should be easily human readable
 
     DATA: {json.dumps(payload, indent=2)}
 """ #f for formatted string
