@@ -43,10 +43,17 @@ def generate_route_explanation(payload):
     #loading API key
     from pathlib import Path
     env_path = Path(__file__).parent.parent.parent.parent.parent.parent / '.env'
+    print(f"DEBUG Gemini: Loading .env from: {env_path}")
+    print(f"DEBUG Gemini: .env exists: {env_path.exists()}")
     load_dotenv(env_path)
     api_key = os.getenv("GEMINI_API_KEY")
+    
+    print(f"DEBUG Gemini: GEMINI_API_KEY loaded: {'Yes' if api_key else 'No'}")
+    if api_key:
+        print(f"DEBUG Gemini: API key starts with: {api_key[:15]}...")
 
     if not api_key:
+        print("WARNING: GEMINI_API_KEY not found, using fallback")
         return fallback
 
     cache_key = json.dumps(payload, sort_keys=True)
@@ -55,25 +62,41 @@ def generate_route_explanation(payload):
         return cached
 
     try:
+        print("DEBUG Gemini: Creating client...")
         client = genai.Client(api_key=api_key)
 
         prompt = _build_prompt(payload)
+        print(f"DEBUG Gemini: Prompt length: {len(prompt)} chars")
+        print(f"DEBUG Gemini: Making API call to Gemini...")
 
         response = client.models.generate_content(
             model="models/gemini-2.5-flash",
             contents=prompt,
         )
 
+        print(f"DEBUG Gemini: Response received, type: {type(response)}")
         text = getattr(response, "text", "") or ""
+        print(f"DEBUG Gemini: Response text length: {len(text)} chars")
+        print(f"DEBUG Gemini: Response text preview: {text[:200]}...")
+        
         parsed = _safe_parse(text)
+        print(f"DEBUG Gemini: Parsed result: {parsed is not None}")
 
         if not parsed:
+            print("WARNING: Failed to parse Gemini response, using fallback")
             parsed = fallback
+        else:
+            print("DEBUG Gemini: Successfully parsed response!")
 
         _cache_set(cache_key, parsed)
         return parsed
 
     except Exception as e:
+        print(f"ERROR Gemini: Exception type: {type(e).__name__}")
+        print(f"ERROR Gemini: Exception message: {str(e)}")
+        import traceback
+        print("ERROR Gemini: Full traceback:")
+        traceback.print_exc()
         return fallback
 
 ##### PROMPT BUILDER #####

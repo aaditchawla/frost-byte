@@ -24,7 +24,9 @@ export default function MapPage() {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
   const [routePolylines, setRoutePolylines] = useState<google.maps.Polyline[]>([]);
   const [backendRoutes, setBackendRoutes] = useState<any>(null);
-
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [originPlace, setOriginPlace] = useState<google.maps.places.PlaceResult | null>(null);
+  const [destinationPlace, setDestinationPlace] = useState<google.maps.places.PlaceResult | null>(null);
 
   // load google maps
   useEffect(() => {
@@ -87,6 +89,15 @@ export default function MapPage() {
               fields: ["place_id", "name", "formatted_address", "geometry"],
             },
           );
+          
+          // Store place when selected
+          autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry) {
+              setOriginPlace(place);
+            }
+          });
+          
           setOriginAutocomplete(autocomplete);
         }
 
@@ -106,6 +117,15 @@ export default function MapPage() {
               fields: ["place_id", "name", "formatted_address", "geometry"],
             },
           );
+          
+          // Store place when selected
+          autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry) {
+              setDestinationPlace(place);
+            }
+          });
+          
           setDestinationAutocomplete(autocomplete);
         }
       })
@@ -135,22 +155,31 @@ export default function MapPage() {
       return;
     }
 
-    const originPlace = originAutocomplete.getPlace();
-    const destinationPlace = destinationAutocomplete.getPlace();
+    const origin = originAutocomplete.getPlace();
+    const destination = destinationAutocomplete.getPlace();
 
-    if (!originPlace?.geometry?.location || !destinationPlace?.geometry?.location) {
+    if (!origin?.geometry?.location || !destination?.geometry?.location) {
       alert("Please select addresses from the dropdown suggestions");
       return;
     }
 
+    // Store places for later use
+    setOriginPlace(origin);
+    setDestinationPlace(destination);
+
     // Get coordinates from Google Places
-    const start = [originPlace.geometry.location.lng(), originPlace.geometry.location.lat()]; // [lon, lat]
-    const end = [destinationPlace.geometry.location.lng(), destinationPlace.geometry.location.lat()]; // [lon, lat]
+    const start = [origin.geometry.location.lng(), origin.geometry.location.lat()]; // [lon, lat]
+    const end = [destination.geometry.location.lng(), destination.geometry.location.lat()]; // [lon, lat]
 
     try {
-      // Clear existing polylines
+      // Clear existing polylines and directions
       routePolylines.forEach(polyline => polyline.setMap(null));
       setRoutePolylines([]);
+      if (directionsRenderer) {
+        directionsRenderer.setDirections({ routes: [] });
+      }
+      setDirectionsResult(null);
+      setSelectedRouteId(null);
 
       // Call your backend API
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -218,7 +247,94 @@ export default function MapPage() {
       console.error("Route error:", error);
       alert(`Could not calculate route: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [originAutocomplete, destinationAutocomplete, map, routePolylines]);
+  }, [originAutocomplete, destinationAutocomplete, map, routePolylines, directionsRenderer]);
+
+  // Handle route selection - get Google Maps directions for selected route
+  const handleRouteSelect = useCallback(async (route: any) => {
+    if (!directionsService || !directionsRenderer || !originPlace || !destinationPlace) {
+      console.log("Missing services or places");
+      return;
+    }
+
+    if (!originPlace.geometry?.location || !destinationPlace.geometry?.location) {
+      alert("Please select addresses first");
+      return;
+    }
+
+    try {
+      // Use waypoints from backend route to get detailed directions
+      // Google Maps allows max 23 waypoints, so we sample intelligently
+      const pathPoints = route.overview_path;
+      const totalPoints = pathPoints.length;
+      
+      // Calculate how many waypoints we can use (max 23, but leave room for start/end)
+      const maxWaypoints = 21; // Leave 2 slots for origin/destination if needed
+      
+      // More aggressive sampling for shorter routes, adaptive for longer routes
+      const sampleInterval = totalPoints < 50 
+        ? 2  // Sample every 2nd point for short routes
+        : Math.max(2, Math.floor(totalPoints / maxWaypoints)); // Adaptive for longer routes
+      
+      // Sample waypoints from the route path (skip first and last as they're origin/destination)
+      const waypoints = pathPoints
+        .filter((_: any, index: number) => 
+          index > 0 && 
+          index < totalPoints - 1 && 
+          index % sampleInterval === 0
+        )
+        .slice(0, maxWaypoints) // Ensure we don't exceed limit
+        .map((point: any) => ({
+          location: new google.maps.LatLng(point.lat, point.lng),
+          stopover: false, // Don't require stopping at waypoints
+        }));
+
+      const request: google.maps.DirectionsRequest = {
+        origin: originPlace.geometry.location,
+        destination: destinationPlace.geometry.location,
+        waypoints: waypoints.length > 0 ? waypoints : undefined, // Only add if we have waypoints
+        travelMode: google.maps.TravelMode.WALKING,
+        optimizeWaypoints: false, // Keep waypoint order to match backend route
+      };
+
+      const result = await directionsService.route(request);
+      
+      // Display on map with directions renderer (this will show Google Maps style route)
+      directionsRenderer.setDirections(result);
+      
+      // Store for DirectionsStepsComponent
+      setDirectionsResult(result);
+      
+      // Update selected route
+      setSelectedRouteId(route.id);
+      
+      // Highlight the selected route polyline
+      routePolylines.forEach((polyline, index) => {
+        const routeId = backendRoutes?.routes[index]?.id;
+        if (routeId === route.id) {
+          polyline.setOptions({
+            strokeWeight: 6,
+            strokeOpacity: 1.0,
+            zIndex: 1000,
+          });
+        } else {
+          polyline.setOptions({
+            strokeWeight: 3,
+            strokeOpacity: 0.5,
+            zIndex: 1,
+          });
+        }
+      });
+
+      // Scroll to directions
+      const directionsElement = document.querySelector('[data-directions]');
+      if (directionsElement) {
+        directionsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (error) {
+      console.error("Directions error:", error);
+      alert("Could not get directions for this route.");
+    }
+  }, [directionsService, directionsRenderer, originPlace, destinationPlace, routePolylines, backendRoutes]);
 
   return (
     <div className="min-h-screen ">
@@ -293,17 +409,33 @@ export default function MapPage() {
                   {backendRoutes.routes.map((route: any) => (
                     <div
                       key={route.id}
-                      className={`p-3 rounded-lg ${
+                      onClick={() => handleRouteSelect(route)}
+                      className={`p-3 rounded-lg cursor-pointer transition-all hover:scale-105 ${
                         route.id === backendRoutes.chosen_route_id
                           ? "bg-green-500/30 border-2 border-green-400"
-                          : "bg-white/10 border border-white/20"
+                          : "bg-white/10 border border-white/20 hover:bg-white/20"
+                      } ${
+                        selectedRouteId === route.id
+                          ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-transparent"
+                          : ""
                       }`}
                     >
                       <div className="text-white text-sm">
-                        <div className="font-bold">{route.type.toUpperCase()}</div>
+                        <div className="font-bold flex items-center justify-between">
+                          <span>{route.type.toUpperCase()}</span>
+                          {selectedRouteId === route.id && (
+                            <span className="text-xs bg-blue-500 px-2 py-1 rounded">Selected</span>
+                          )}
+                        </div>
                         <div>Distance: {route.legs[0]?.distance?.text}</div>
                         <div>Duration: {route.legs[0]?.duration?.text}</div>
                         <div>Score: {route.score.toFixed(2)}</div>
+                        <div className="text-xs text-blue-300 mt-2 flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          Click for directions
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -319,10 +451,12 @@ export default function MapPage() {
                 </div>
               )}
 
-              <DirectionsSteps
-                directionsResult={directionsResult}
-                onStepSelect={setSelectedStepIndex}
-              />
+              <div data-directions>
+                <DirectionsSteps
+                  directionsResult={directionsResult}
+                  onStepSelect={setSelectedStepIndex}
+                />
+              </div>
             </div>
           </div>
 
