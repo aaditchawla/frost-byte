@@ -25,6 +25,8 @@ export default function MapPage() {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(
     null,
   );
+  const [isStepsCollapsed, setIsStepsCollapsed] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
 
   // load google maps
   useEffect(() => {
@@ -170,6 +172,16 @@ export default function MapPage() {
     originAutocomplete,
     destinationAutocomplete,
   ]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobileView(window.innerWidth < 1024);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   return (
     <div className="min-h-screen ">
