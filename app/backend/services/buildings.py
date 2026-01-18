@@ -71,8 +71,3 @@ async def get_building_features(lat: float, lon: float, radius_m: int = 40):
                                       # not computed in the MVP, left as None intentionally
         "source": "overpass",
     }
-
-
-
-    
-
