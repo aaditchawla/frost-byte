@@ -51,6 +51,7 @@ export default function MapPanel() {
       map,
       suppressMarkers: false,
       suppressInfoWindows: false,
+      suppressPolylines: true, // Prevent DirectionsRenderer from drawing its own route (we use custom polylines)
     });
 
     setDirectionsService(service);
