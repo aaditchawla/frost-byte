@@ -4,3 +4,4 @@ tailwindcss
 nextjs
 postcss
 tsc
+@dotlottie/react-player

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { useRouteContext } from "../contexts/routeContext";
 
@@ -13,9 +13,16 @@ declare global {
 export default function MapPanel() {
   const { map, setMap, setDirectionsService, setDirectionsRenderer } =
     useRouteContext();
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [apiKey, setApiKey] = useState<string | null>(null);
 
-  // Load Google Maps
+  //get api key
+  useEffect(() => {
+    fetch("/api/maps-config")
+      .then((res) => res.json())
+      .then((data) => setApiKey(data.apiKey))
+      .catch((error) => console.error("Failed to fetch maps config:", error));
+  }, []);
+
   useEffect(() => {
     if (!apiKey) return;
 
