@@ -70,3 +70,5 @@ echo ""
 # Wait for both to exit (if either crashes, script stays up until you Ctrl+C)
 wait "$BACKEND_PID" || true
 wait "$FRONTEND_PID" || true
+
+#sophie git test commit
