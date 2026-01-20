@@ -75,6 +75,7 @@ async def get_building_features(lat: float, lon: float, radius_m: int = 40):
 # Building feature extraction (Overpass)
 import httpx
 import re
+from typing import Optional
 from services.scoring.interfaces import BuildingServiceInterface
 
 _NUM = re.compile(r"(-?\d+(\.\d+)?)")
@@ -101,7 +102,7 @@ def _parse_number(val: str): # extracts a number from strings like "12", "12m"
     except ValueError:
         return None
     
-def _estimate_height_m(tags: dict) -> float | None:
+def _estimate_height_m(tags: dict) -> Optional[float]:
     # direct height (meters)
     h = _parse_number(tags.get("height", ""))
     if h and h > 0:
@@ -125,7 +126,7 @@ def _buildings_query(lat: float, lon: float, radius_m: int) -> str:
     out tags center;
     """
 
-def _compute_shelter_score(building_count: int, avg_height: float | None) -> float:
+def _compute_shelter_score(building_count: int, avg_height: Optional[float]) -> float:
     """
     Compute shelter score (0-1) based on building count and height.
     More buildings + taller buildings = higher shelter score.
